@@ -54,12 +54,12 @@ def orthogonality_check(array):
     #3. Check if close
     # https://numpy.org/devdocs/reference/generated/numpy.isclose.html
     # Strict Tolerance
-    #is_u_close = np.allclose(UtU, I_u)
-    #is_v_close = np.allclose(VtV, I_v)
+    is_u_close = np.allclose(UtU, I_u)
+    is_v_close = np.allclose(VtV, I_v)
     
     # Relaxed tolerance
-    is_u_close = np.allclose(UtU, I_u, atol=1e-5)
-    is_v_close = np.allclose(VtV, I_v, atol=1e-5)
+    #is_u_close = np.allclose(UtU, I_u, atol=1e-5)
+    #is_v_close = np.allclose(VtV, I_v, atol=1e-5)
     print("U orthogonal:", is_u_close)
     print("V orthogonal:", is_v_close)
     
