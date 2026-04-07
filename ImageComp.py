@@ -6,31 +6,35 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 def matrix_normalization(path):
-    # load the path and extract iamge
+    # https://scikit-image.org/docs/0.24.x/api/skimage.html
+    #1. Load the path and extract image.
     img = io.imread(path)
+
+    #2. Normalize, convert image to float64 and scale between [0,1].
     img_float = img_as_float(img)
 
-    # already grayscale
+    #2. Make grayscale.
+    # Check if already grayscale
     if img_float.ndim == 2: 
         A = img_float
-    # rgb
+    # Otherwise convert to grayscale
     else: 
-        # handle rgba by removing alpha channel
+        # Handle RGBA by removing alpha channel if it exists
         A = rgb2gray(img_float[:, :, :3])
 
-    # display images
+    # 3. Display converted image.
     fig, axes = plt.subplots(1, 2, figsize=(12, 6))
     axes[0].imshow(img)
-    axes[0].set_title("Original (RGBA/RGB)")
+    axes[0].set_title("Original")
     axes[0].axis('off')
 
     axes[1].imshow(A, cmap='gray')
-    axes[1].set_title("Grayscale Result")
+    axes[1].set_title("Grayscale")
     axes[1].axis('off')
     plt.show()
 
-    # Return array of floats
-    return A.astype(np.float32)
+    # 4. Return array of normalized floats
+    return A
 
 def orthogonality_check(array):
     #1. Extract svd form
