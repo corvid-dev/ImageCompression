@@ -18,7 +18,7 @@ def matrix_normalization(img):
 def orthogonality_check(array):
     #1. Extract svd form
     # https://numpy.org/doc/stable/reference/generated/numpy.linalg.svd.html
-    U, S, Vh = np.linalg.svd(array, full_matrices=False)
+    U, S, Vh = np.linalg.svd(array) # full svd
     # U  -> Unitary Matrix, Orthonormal
     # S  -> Diagonal of Σ, contains σ_i
     # Vh -> V^H, Hermitian
