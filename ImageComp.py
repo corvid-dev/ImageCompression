@@ -9,7 +9,6 @@ def matrix_normalization(img):
     path = img
     img = io.imread(path)
     img = img_as_float(img)
-    # Check array dimensions, if 2, then already white or black
     A = rgb2gray(img)
     return A.astype(np.float32)
 
