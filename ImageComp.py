@@ -1,7 +1,11 @@
-
-from skimage import io, img_as_float
-from skimage.color import rgb2gray
+"Import Libraries"
+# Linear Algebra
 import numpy as np
+# Image Processing
+from skimage import io
+from skimage.color import rgb2gray
+from skimage.util import img_as_float
+# Visualization
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -73,13 +77,13 @@ def visualize_svd(array):
     #1. Extract compact svd form
     U, S, Vh = np.linalg.svd(array, full_matrices=False) # compact SVD
 
-    #2. Take first 2 components for 2D visualization
-    Sigma_2 = np.diag(S[:2]) # rescaling, build from  σ_i
-    U_2 = U[:2, :2]  # rotation
-    Vh_2 = Vh[:2, :2] # rotation
-
-    #3. Define arbitrary test vector s_bar in R^2
+    #2. Define arbitrary test vector s_bar in R^2
     s_bar = np.array([1.0, 0.5])
+
+    #3. Take first 2 components for 2D visualization
+    Sigma_2 = np.diag(S[:2]) # Stretch vector along axis, build from  σ_i
+    U_2 = U[:2, :2]  # Perform final rotation to put vector into output space
+    Vh_2 = Vh[:2, :2] # Rotate test vector s_bar to align with principal components
 
     #4. Build vectors from transformations
     v_1 = Vh_2 @ s_bar              # V^H s
