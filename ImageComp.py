@@ -5,11 +5,31 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-def matrix_normalization(img):
-    path = img
+def matrix_normalization(path):
+    # load the path and extract iamge
     img = io.imread(path)
-    img = img_as_float(img)
-    A = rgb2gray(img)
+    img_float = img_as_float(img)
+
+    # already grayscale
+    if img_float.ndim == 2: 
+        A = img_float
+    # rgb
+    else: 
+        # handle rgba by removing alpha channel
+        A = rgb2gray(img_float[:, :, :3])
+
+    # display images
+    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+    axes[0].imshow(img)
+    axes[0].set_title("Original (RGBA/RGB)")
+    axes[0].axis('off')
+
+    axes[1].imshow(A, cmap='gray')
+    axes[1].set_title("Grayscale Result")
+    axes[1].axis('off')
+    plt.show()
+
+    # Return array of floats
     return A.astype(np.float32)
 
 def orthogonality_check(array):
@@ -45,6 +65,6 @@ def orthogonality_check(array):
     print("||VtV - I_v||:", np.linalg.norm(VtV - I_v))
 
 
-file_path = "white.png"
+file_path = "veggies.png"
 image_array = matrix_normalization(file_path)
 orthogonality_check(image_array)
