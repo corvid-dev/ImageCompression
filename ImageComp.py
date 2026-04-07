@@ -1,18 +1,16 @@
 
 from skimage import io, img_as_float
+from skimage.color import rgb2gray
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 def matrix_normalization(img):
-    # Hardcoded file path
     path = img
     img = io.imread(path)
     img = img_as_float(img)
-    if img.ndim == 2:
-        A = img
-    else:
-        A = np.dot(img[..., :3], [0.299, 0.587, 0.114])
+    # Check array dimensions, if 2, then already white or black
+    A = rgb2gray(img)
     return A.astype(np.float32)
 
 def orthogonality_check(array):
