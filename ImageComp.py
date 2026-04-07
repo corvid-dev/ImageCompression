@@ -39,7 +39,8 @@ def matrix_normalization(path):
 def orthogonality_check(array):
     #1. Extract svd form
     # https://numpy.org/doc/stable/reference/generated/numpy.linalg.svd.html
-    U, S, Vh = np.linalg.svd(array) # full svd
+    #U, S, Vh = np.linalg.svd(array) # full svd
+    U, S, Vh = np.linalg.svd(array, full_matrices = False) # compact svd
     # U  -> Unitary Matrix, Orthonormal
     # S  -> Diagonal of Σ, contains σ_i
     # Vh -> V^H, Hermitian
@@ -68,7 +69,54 @@ def orthogonality_check(array):
     print("||UtU - I_u||:", np.linalg.norm(UtU - I_u))
     print("||VtV - I_v||:", np.linalg.norm(VtV - I_v))
 
+def visualize_svd(array):
+    #1. Extract compact svd form
+    U, S, Vh = np.linalg.svd(array, full_matrices=False) # compact SVD
+
+    #2. Take first 2 components for 2D visualization
+    Sigma_2 = np.diag(S[:2]) # rescaling, build from  σ_i
+    U_2 = U[:2, :2]  # rotation
+    Vh_2 = Vh[:2, :2] # rotation
+
+    #3. Define arbitrary test vector s_bar in R^2
+    s_bar = np.array([1.0, 0.5])
+
+    #4. Build vectors from transformations
+    v_1 = Vh_2 @ s_bar              # V^H s
+    v_2 = Sigma_2 @ v_1              # Σ V^H s
+    v_3 = U_2 @ v_2                  # U Σ V^H s
+
+    #5. Plot vectors
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+
+    # build axis
+    def draw(ax, vec, title):
+        ax.quiver(
+            0, 0,                 # start at origin
+            vec[0], vec[1],       # vector components
+            angles='xy',
+            scale_units='xy',
+            scale=1
+        )
+
+        ax.set_xlim(-2, 2)
+        ax.set_ylim(-2, 2)
+        ax.axhline(0)
+        ax.axvline(0)
+        ax.set_aspect('equal')
+        ax.set_title(title)
+        ax.grid()
+
+    # draw vectors upon axis
+    draw(axes[0], v_1, r"$V^H \bar{s}$")
+    draw(axes[1], v_2, r"$\Sigma V^H \bar{s}$")
+    draw(axes[2], v_3, r"$U\Sigma V^H \bar{s}$")
+
+    plt.tight_layout()
+    plt.show()
+
 
 file_path = "veggies.png"
 image_array = matrix_normalization(file_path)
 orthogonality_check(image_array)
+visualize_svd(image_array)
