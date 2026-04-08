@@ -130,51 +130,70 @@ def visualize_svd(array):
     plt.show()
 
 def spectral_analysis_and_error_quantification(array):
+    # Re-make the matrices U, S, Vh & Σ_i
     U, S, Vh = np.linalg.svd(array, full_matrices=False)  # compact svd
     Sigma_i = np.diag(S[:])
-    LOG_SCALE = (1,10,50,100)
+    # Tuple to iterate through the different LOG scales
+    LOG_SCALE = (1,10,50,100, 71) # can remove 71 for final submission
 
-    # --- 1. Plot singular values on a log scale ---
+    # Plot singular values on a log scale
     fig, ax = plt.subplots(figsize=(10, 4))
     ax.semilogy(Sigma_i, color='steelblue')
+    # Title/Axis Labels
     ax.set_title("Singular Values (Log Scale)")
     ax.set_xlabel("Index i")
     ax.set_ylabel(r"$\sigma_i$ (log scale)")
+    # Other Configurations before making the graph
     ax.grid(True, which='both', linestyle='--', alpha=0.6)
     plt.tight_layout()
     plt.show()
 
+    # Makes the Frobenius norm of A so it isn't calculated every iteration
+    #  ||A||_F = sqrt{ sum_{i=1}^m sum_{j=1}^n |a_{ij}|^2 }
     A_frobenius = np.linalg.norm(array, 'fro')
+    # Calculates the constant denominator for Energy(k) to reduce # calculations
     energy_denominator_sum = np.sum(S ** 2)
 
+    # Makes a number of subplots equal to the length of LOG_SCALE
     fig, axes = plt.subplots(1, len(LOG_SCALE), figsize=(16, 4))
 
-    #
+    # Loops through the values in LOG_SCALE and assigns the values index to i & the value to k
     for i, k in enumerate(LOG_SCALE):
+        # Calculates A_k using:
+        # ∑^k_{i=1} (σ_i u_i v^T)
         A_k = (U[:, :k] * S[:k]) @ Vh[:k, :]
+        # Calculate the relative error using:
+        # Error = (||A − A_k||_F) / (||A||_F)
         rel_error = np.linalg.norm(array-A_k, 'fro') / A_frobenius
+        # Calculate the energy using:
+        # Energy(k) = (∑^k_{i=1} σ^2_i) / (∑^n_{i=1} σ^2_i)
         energy_k = np.sum(S[:k] ** 2)/energy_denominator_sum
 
-        # Plot A_k
+        # Plot A_k to one of the sub-graphs from above
         axes[i].imshow(A_k, cmap='gray')
         axes[i].set_title(
             f"k = {k}\nError: {rel_error:.4f}\nEnergy: {energy_k:.4f}"
         )
         axes[i].axis('off')
 
-        # Print metrics to console
+        # Print metrics to console for not fancy viewing
         print(f"k = {k:>4} | Relative Error: {rel_error:.6f} | Energy: {energy_k:.6f}")
 
-    plt.suptitle("Rank-k Approximations (Aₖ)", fontsize=14)
+    # Plot making and construction
+    plt.suptitle(r"Rank-k Approximations $(A_k)$", fontsize=14)
     plt.tight_layout()
     plt.show()
 
 def compression_ratio(array):
+    # Re-make U, S & Vh again part 3
     U, S, Vh = np.linalg.svd(array, full_matrices=False)  # compact svd
+    # ε = 0.001
     epsilon = 1e-3
+    # m = num rows  |  n = num cols
     m, n = array.shape
 
-    # --- 1. Determine k using the 2-norm condition ---
+    # ----- This is where stuff from part 3 should come in with 2-norm stuff -----
+
     # ||A - A_k||_2 = σ_{k+1}, so find smallest k where σ_{k+1} < ε
     k = None
     for i in range(len(S) - 1):
@@ -185,9 +204,18 @@ def compression_ratio(array):
     if k is None:
         k = len(S)
 
+    # Calculate the compression ratio (CR) using:
+    # CR = (m × n) / (k(m + n + 1))
     CR = (m*n)/(k*(m+n+1))
+    # **Prints out CR**
     print(f"Compression Ratio: {CR:.6f}")
 
+    # Theory on a hunch:
+    # The decimal given by this function, you multiply that by 100 to get the optimal compression rate per photo
+
+    # TODO:
+    # Possibly add a way to show this working on the photo input
+    # Make TS look nice
 
 file_path = "veggies.png"
 image_array = matrix_normalization(file_path)
