@@ -92,32 +92,14 @@ def visualize_svd(array):
             return np.zeros_like(v) # return a zero vector of the same shape to avoid divbyzero
         return v / norm
 
-    # def on_basis(a,b):
-    #     # perform gram schmidt to build orthonormal basis
-    #     q_1 = normalize(a) # normalize v_1 and assign to q_1
-    #     b_perp = b - q_1.T @ b * q_1 # find b_perp to q_1
-    #     q_2 = normalize(b_perp) # normalize b_perp and assign to q_2
-    #     basis = np.column_stack([q_1,q_2]) # build matrix from basis vectors
-    #     return basis 
+    def on_basis(a,b):
+        # perform gram schmidt to build orthonormal basis
+        q_1 = normalize(a) # normalize v_1 and assign to q_1
+        b_perp = b - q_1.T @ b * q_1 # find b_perp to q_1
+        q_2 = normalize(b_perp) # normalize b_perp and assign to q_2
+        basis = np.column_stack([q_1,q_2]) # build matrix from basis vectors
+        return basis 
 
-    def on_basis(a, b):
-        # 1. Normalize a. If zero, default to x-axis [1, 0, 0...]
-        q_1 = normalize(a)
-        if np.all(q_1 == 0): 
-            q_1[0] = 1.0
-
-        # 2. Compute perpendicular component
-        b_perp = b - q_1.T @ b * q_1
-        q_2 = normalize(b_perp)
-
-        # 3. If q_2 is zero (b was zero or parallel to a), find a new direction
-        if np.all(q_2 == 0):
-            # Pick the axis q_1 points at the LEAST to ensure independence
-            rescue = np.zeros_like(q_1)
-            rescue[np.argmin(np.abs(q_1))] = 1.0
-            q_2 = normalize(rescue - q_1.T @ rescue * q_1)
-
-        return np.column_stack([q_1, q_2])
     def embed(v,dim):
         E = np.zeros(dim, dtype=float) # build a new zeros matrix of size dim
         E[:len(v)]=v # embed the vector in the first column
