@@ -96,15 +96,25 @@ def visualize_svd(array):
     # build axis
     def draw(ax, vec, title):
         ax.quiver(
-            0, 0,                 # start at origin
-            vec[0], vec[1],       # vector components
+            0, 0,
+            vec[0], vec[1],
             angles='xy',
             scale_units='xy',
             scale=1
         )
 
-        ax.set_xlim(-2, 2)
-        ax.set_ylim(-2, 2)
+        # scale axes to this vector
+        max_val = max(abs(vec[0]), abs(vec[1]))
+
+        # avoid zero range
+        if max_val == 0:
+            max_val = 1
+
+        pad = 0.3 * max_val
+
+        ax.set_xlim(-max_val - pad, max_val + pad)
+        ax.set_ylim(-max_val - pad, max_val + pad)
+
         ax.axhline(0)
         ax.axvline(0)
         ax.set_aspect('equal')
@@ -119,8 +129,69 @@ def visualize_svd(array):
     plt.tight_layout()
     plt.show()
 
+def spectral_analysis_and_error_quantification(array):
+    U, S, Vh = np.linalg.svd(array, full_matrices=False)  # compact svd
+    Sigma_i = np.diag(S[:])
+    LOG_SCALE = (1,10,50,100)
+
+    # --- 1. Plot singular values on a log scale ---
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.semilogy(Sigma_i, color='steelblue')
+    ax.set_title("Singular Values (Log Scale)")
+    ax.set_xlabel("Index i")
+    ax.set_ylabel(r"$\sigma_i$ (log scale)")
+    ax.grid(True, which='both', linestyle='--', alpha=0.6)
+    plt.tight_layout()
+    plt.show()
+
+    A_frobenius = np.linalg.norm(array, 'fro')
+    energy_denominator_sum = np.sum(S ** 2)
+
+    fig, axes = plt.subplots(1, len(LOG_SCALE), figsize=(16, 4))
+
+    #
+    for i, k in enumerate(LOG_SCALE):
+        A_k = (U[:, :k] * S[:k]) @ Vh[:k, :]
+        rel_error = np.linalg.norm(array-A_k, 'fro') / A_frobenius
+        energy_k = np.sum(S[:k] ** 2)/energy_denominator_sum
+
+        # Plot A_k
+        axes[i].imshow(A_k, cmap='gray')
+        axes[i].set_title(
+            f"k = {k}\nError: {rel_error:.4f}\nEnergy: {energy_k:.4f}"
+        )
+        axes[i].axis('off')
+
+        # Print metrics to console
+        print(f"k = {k:>4} | Relative Error: {rel_error:.6f} | Energy: {energy_k:.6f}")
+
+    plt.suptitle("Rank-k Approximations (Aₖ)", fontsize=14)
+    plt.tight_layout()
+    plt.show()
+
+def compression_ratio(array):
+    U, S, Vh = np.linalg.svd(array, full_matrices=False)  # compact svd
+    epsilon = 1e-3
+    m, n = array.shape
+
+    # --- 1. Determine k using the 2-norm condition ---
+    # ||A - A_k||_2 = σ_{k+1}, so find smallest k where σ_{k+1} < ε
+    k = None
+    for i in range(len(S) - 1):
+        if S[i + 1] < epsilon:
+            k = i + 1
+            break
+    # Edge case: all singular values satisfy tolerance
+    if k is None:
+        k = len(S)
+
+    CR = (m*n)/(k*(m+n+1))
+    print(f"Compression Ratio: {CR:.6f}")
+
 
 file_path = "veggies.png"
 image_array = matrix_normalization(file_path)
 orthogonality_check(image_array)
 visualize_svd(image_array)
+spectral_analysis_and_error_quantification(image_array)
+compression_ratio(image_array)
