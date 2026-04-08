@@ -92,7 +92,7 @@ def visualize_svd(array):
             return np.zeros_like(v) # return a zero vector of the same shape to avoid divbyzero
         return v / norm
 
-    def on_basis(a,b):
+    def ON_basis(a,b):
         # perform gram schmidt to build orthonormal basis
         q_1 = normalize(a) # normalize v_1 and assign to q_1
         b_perp = b - q_1.T @ b * q_1 # find b_perp to q_1
@@ -113,7 +113,7 @@ def visualize_svd(array):
         v_a = embed(v_before, dim)
         v_b = embed(v_after, dim)
         # construct orthonormal basis
-        basis = on_basis(v_a, v_b)
+        basis = ON_basis(v_a, v_b)
         # project onto plane
         c_before = coord_plane(v_a, basis)
         c_after = coord_plane(v_b, basis)
@@ -130,21 +130,48 @@ def visualize_svd(array):
     p3_v2, p3_v3 = get_panel_coords(v_2, v_3, m)
 
     panels = [
-        (p1_s, p1_v1, r"$\bar{s}$", r"$V^H \bar{s}$", "Rotation by $V^H$"),
-        (p2_v1, p2_v2, r"$V^H \bar{s}$", r"$\Sigma V^H \bar{s}$", "Scaling by $\Sigma$"),
-        (p3_v2, p3_v3, r"$\Sigma V^H \bar{s}$", r"$U \Sigma V^H \bar{s}$", "Rotation by $U$")
+        (p1_s, p1_v1, r"$\bar{s}$", r"$V^H \bar{s}$", r"Rotation by $V^H$"),
+        (p2_v1, p2_v2, r"$V^H \bar{s}$", r"$\Sigma V^H \bar{s}$", r"Scaling by $\Sigma$"),
+        (p3_v2, p3_v3, r"$\Sigma V^H \bar{s}$", r"$U \Sigma V^H \bar{s}$", r"Rotation by $U$")
     ]
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    
+    def angle_between(a, b):
+        # compute angle in radians, then convert to degrees
+        na = np.linalg.norm(a)
+        nb = np.linalg.norm(b)
+        # check if 0 to prevent divbyzero
+        if na < 1e-10 or nb < 1e-10:
+            return 0.0
+        cos_theta = np.clip(np.dot(a, b) / (na * nb), -1.0, 1.0) # restrict to [-1,1] against rounding
+        return np.degrees(np.arccos(cos_theta))
+    
+    def length_change_perc(before,after):
+        length_before = np.linalg.norm(before)
+        length_after = np.linalg.norm(after)
+        if length_before < 1e-10:
+            scale_pct = 0.0
+        else:
+            pct_change = ((length_after - length_before) / length_before) * 100
+        if abs(pct_change) < 1e-5:
+                pct_change = 0.0
+        return pct_change
 
     for ax, (before, after, label_a, label_b, title) in zip(axes, panels):
+        angle = angle_between(before, after)
+        pct_change = length_change_perc(before,after)
+        info = plt.Line2D([], [], linestyle='none',
+                    label=f"Rescale {pct_change:.1f}%\nθ = {angle:.1f}°")
         # determine plot limits based on vector magnitude, with some padding
         limit = max(np.linalg.norm(before), np.linalg.norm(after), 1) * 1.2
-        # draw vectors
-        ax.quiver(0, 0, before[0], before[1], angles='xy', scale_units='xy', 
+
+        # draw vectors from (0,0) to (vector_x,vector_y)
+        ax.quiver(0, 0, before[0], before[1], angles='xy', scale_units='xy',
                 scale=1, color='red', label=f"Before: {label_a}", alpha=0.7)
-        ax.quiver(0, 0, after[0], after[1], angles='xy', scale_units='xy', 
+        ax.quiver(0, 0, after[0], after[1], angles='xy', scale_units='xy',
                 scale=1, color='blue', label=f"After: {label_b}", alpha=0.4)
+
         # format axis
         ax.set_xlim(-limit, limit)
         ax.set_ylim(-limit, limit)
@@ -152,8 +179,10 @@ def visualize_svd(array):
         ax.axhline(0, color='black', lw=0.5)
         ax.axvline(0, color='black', lw=0.5)
         ax.grid(True, linestyle='--', alpha=0.5)
-        ax.legend(fontsize='small')
-        # print titles
+        handles, labels = ax.get_legend_handles_labels()
+        handles.append(info)
+        labels.append(info.get_label())
+        ax.legend(handles, labels, fontsize='small')
         ax.set_title(title, fontsize=12)
 
     plt.tight_layout()
@@ -248,8 +277,8 @@ def compression_ratio(array):
     # Possibly add a way to show this working on the photo input
     # Make TS look nice
 
-file_path = "towson.jpg"
-image_array = matrix_normalization(file_path, True)
+file_path = "balloons.jpg"
+image_array = matrix_normalization(file_path, print=True)
 orthogonality_check(image_array)
 visualize_svd(image_array)
 spectral_analysis_and_error_quantification(image_array)
