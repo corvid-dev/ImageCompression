@@ -75,226 +75,108 @@ def orthogonality_check(array):
     print("||VtV - I_v||:", np.linalg.norm(VtV - I_v))
 
 def visualize_svd(array):
-    #1. Extract compact svd form
-    U, S, Vh = np.linalg.svd(array, full_matrices=False) # compact SVD
+    m,n = array.shape # m = row, n = col
+    U,S,Vh = np.linalg.svd(array, full_matrices=False)
+    r = len(S) # r = rank
+    s_bar = np.ones(n, dtype=float) # test vector <1,1,...,1>
+    Sigma = np.diag(S)
+    
+    v_1 = Vh @ s_bar
+    v_2 = Sigma @ v_1
+    v_3 = U @ v_2
 
-    #2. Define arbitrary test vector s_bar in R^2
-    s_bar = np.array([1.0, 0.5])
-
-    #3. Take first 2 components for 2D visualization
-    Sigma_2 = np.diag(S[:2]) # Stretch vector along axis, build from  σ_i
-    U_2 = U[:2, :2]  # Perform final rotation to put vector into output space
-    Vh_2 = Vh[:2, :2] # Rotate test vector s_bar to align with principal components
-
-    #4. Build vectors from transformations
-    v_1 = Vh_2 @ s_bar              # V^H s
-    v_2 = Sigma_2 @ v_1              # Σ V^H s
-    v_3 = U_2 @ v_2                  # U Σ V^H s
-
-    #5. Plot vectors
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-
-    # build axis
-    def draw(ax, vec, title):
-        ax.quiver(
-            0, 0,
-            vec[0], vec[1],
-            angles='xy',
-            scale_units='xy',
-            scale=1
-        )
-
-        # scale axes to this vector
-        max_val = max(abs(vec[0]), abs(vec[1]))
-
-        # avoid zero range
-        if max_val == 0:
-            max_val = 1
-
-        pad = 0.3 * max_val
-
-        ax.set_xlim(-max_val - pad, max_val + pad)
-        ax.set_ylim(-max_val - pad, max_val + pad)
-
-        ax.axhline(0)
-        ax.axvline(0)
-        ax.set_aspect('equal')
-        ax.set_title(title)
-        ax.grid()
-
-    # draw vectors upon axis
-    draw(axes[0], v_1, r"$V^H \bar{s}$")
-    draw(axes[1], v_2, r"$\Sigma V^H \bar{s}$")
-    draw(axes[2], v_3, r"$U\Sigma V^H \bar{s}$")
-
-    plt.tight_layout()
-    plt.show()
-
-def visualize_svd_vibe(matrix):
-    """
-    Visualize the compact SVD of a matrix using true 2D planes for each stage.
-
-    The decomposition is:
-        A = U Σ V^H
-
-    The three panels show:
-        1. s vs V^H s
-        2. V^H s vs Σ V^H s
-        3. Σ V^H s vs U Σ V^H s
-
-    Each panel is drawn in an orthonormal basis for the plane spanned by the
-    two vectors being compared, so lengths/angles within a panel are represented
-    faithfully.
-
-    Parameters
-    ----------
-    matrix : np.ndarray
-        Input matrix of shape (m, n).
-    """
-    A = np.asarray(matrix, dtype=float)
-    if A.ndim != 2:
-        raise ValueError("matrix must be 2-dimensional")
-
-    m, n = A.shape
-
-    # Compact SVD: A = U Σ Vh
-    U, S, Vh = np.linalg.svd(A, full_matrices=False)
-    r = len(S)
-
-    # Default test vector in the domain R^n
-    s = np.ones(n, dtype=float)
-
-    def unit(v, tol=1e-12):
+    def normalize(v):
+        # turn any vector into a unit vector
         norm = np.linalg.norm(v)
-        if norm < tol:
-            raise ValueError("Cannot normalize a near-zero vector.")
+        if norm < 1e-10: # check if its a zero vector
+            return np.zeros_like(v) # return a zero vector of the same shape to avoid divbyzero
         return v / norm
 
-    def plane_basis(a, b, tol=1e-12):
-        """
-        Return an orthonormal basis (e1, e2) for span{a, b}.
-        If a and b are collinear, choose any perpendicular direction.
-        """
-        a = np.asarray(a, dtype=float)
-        b = np.asarray(b, dtype=float)
+    # def on_basis(a,b):
+    #     # perform gram schmidt to build orthonormal basis
+    #     q_1 = normalize(a) # normalize v_1 and assign to q_1
+    #     b_perp = b - q_1.T @ b * q_1 # find b_perp to q_1
+    #     q_2 = normalize(b_perp) # normalize b_perp and assign to q_2
+    #     basis = np.column_stack([q_1,q_2]) # build matrix from basis vectors
+    #     return basis 
 
-        e1 = unit(a, tol=tol)
+    def on_basis(a, b):
+        # 1. Normalize a. If zero, default to x-axis [1, 0, 0...]
+        q_1 = normalize(a)
+        if np.all(q_1 == 0): 
+            q_1[0] = 1.0
 
-        b_perp = b - np.dot(b, e1) * e1
-        b_perp_norm = np.linalg.norm(b_perp)
+        # 2. Compute perpendicular component
+        b_perp = b - q_1.T @ b * q_1
+        q_2 = normalize(b_perp)
 
-        if b_perp_norm < tol:
-            for k in range(len(a)):
-                candidate = np.zeros_like(a)
-                candidate[k] = 1.0
-                candidate -= np.dot(candidate, e1) * e1
-                cand_norm = np.linalg.norm(candidate)
-                if cand_norm >= tol:
-                    e2 = candidate / cand_norm
-                    return e1, e2
-            raise ValueError("Failed to construct a second basis vector.")
+        # 3. If q_2 is zero (b was zero or parallel to a), find a new direction
+        if np.all(q_2 == 0):
+            # Pick the axis q_1 points at the LEAST to ensure independence
+            rescue = np.zeros_like(q_1)
+            rescue[np.argmin(np.abs(q_1))] = 1.0
+            q_2 = normalize(rescue - q_1.T @ rescue * q_1)
 
-        e2 = b_perp / b_perp_norm
-        return e1, e2
+        return np.column_stack([q_1, q_2])
+    def embed(v,dim):
+        E = np.zeros(dim, dtype=float) # build a new zeros matrix of size dim
+        E[:len(v)]=v # embed the vector in the first column
+        return E
+    
+    def coord_plane(v,basis):
+        # build a new 2-dimensional coordinate plane
+        return basis.T @ v
+    
+    def get_panel_coords(v_before, v_after, dim):
+        v_a = embed(v_before, dim)
+        v_b = embed(v_after, dim)
+        # construct orthonormal basis
+        basis = on_basis(v_a, v_b)
+        # project onto plane
+        c_before = coord_plane(v_a, basis)
+        c_after = coord_plane(v_b, basis)
+        return c_before, c_after
 
-    def coords_in_plane(v, basis):
-        e1, e2 = basis
-        return np.array([np.dot(v, e1), np.dot(v, e2)])
+    # Construct vectors within 2d coordinate system
+    # Panel 1: Apply V^H (rotation): s -> V^H s
+    p1_s, p1_v1 = get_panel_coords(s_bar, v_1, n)
 
-    def embed(vec, dim):
-        out = np.zeros(dim, dtype=float)
-        out[:len(vec)] = vec
-        return out
+    # Panel 2: Apply Σ (scaling): V^H s -> Σ V^H s
+    p2_v1, p2_v2 = get_panel_coords(v_1, v_2, r)
 
-    def draw_panel(ax, before, after, before_label, after_label, title):
-        max_val = max(np.max(np.abs(before)), np.max(np.abs(after)), 1e-6)
-        pad = 0.12 * max_val
-        limit = max_val + pad
+    # Panel 3: Apply U (rotation): Σ V^H s -> U Σ V^H s
+    p3_v2, p3_v3 = get_panel_coords(v_2, v_3, m)
 
-        ax.set_xlim(-limit, limit)
-        ax.set_ylim(-limit, limit)
-        ax.set_aspect("equal")
-
-        # Draw axes FIRST (low z-order)
-        ax.axhline(0, color="black", linewidth=1, zorder=0)
-        ax.axvline(0, color="black", linewidth=1, zorder=0)
-
-        # Draw vectors LAST (high z-order)
-        ax.quiver(
-            0, 0, before[0], before[1],
-            angles="xy", scale_units="xy", scale=1,
-            color="red", alpha=0.8, label=before_label,
-            zorder=3
-        )
-        ax.quiver(
-            0, 0, after[0], after[1],
-            angles="xy", scale_units="xy", scale=1,
-            color="blue", alpha=0.5, label=after_label,
-            zorder=4
-        )
-
-        ax.grid(True, linestyle="--", alpha=0.6)
-        ax.set_title(title)
-        ax.legend(loc="upper left", fontsize="small")
-
-    # Step 1: V^H s
-    v1 = Vh @ s                   # shape (r,)
-
-    # Step 2: Σ V^H s
-    Sigma = np.diag(S)
-    v2 = Sigma @ v1               # shape (r,)
-
-    # Step 3: U Σ V^H s
-    v3 = U @ v2                   # shape (m,)
-
-    # Panel 1: s and v1 need the same ambient space
-    v1_embed_n = embed(v1, n)
-
-    # Panel 3: v2 and v3 need the same ambient space
-    v2_embed_m = embed(v2, m)
-
-    # Build exact 2D coordinates for each comparison plane
-    basis1 = plane_basis(s, v1_embed_n)
-    s_2d = coords_in_plane(s, basis1)
-    v1_2d = coords_in_plane(v1_embed_n, basis1)
-
-    basis2 = plane_basis(v1, v2)
-    v1b_2d = coords_in_plane(v1, basis2)
-    v2_2d = coords_in_plane(v2, basis2)
-
-    basis3 = plane_basis(v2_embed_m, v3)
-    v2b_2d = coords_in_plane(v2_embed_m, basis3)
-    v3_2d = coords_in_plane(v3, basis3)
+    panels = [
+        (p1_s, p1_v1, r"$\bar{s}$", r"$V^H \bar{s}$", "Rotation by $V^H$"),
+        (p2_v1, p2_v2, r"$V^H \bar{s}$", r"$\Sigma V^H \bar{s}$", "Scaling by $\Sigma$"),
+        (p3_v2, p3_v3, r"$\Sigma V^H \bar{s}$", r"$U \Sigma V^H \bar{s}$", "Rotation by $U$")
+    ]
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-    draw_panel(
-        axes[0],
-        s_2d,
-        v1_2d,
-        r"$\bar{s}$",
-        r"$V^H \bar{s}$",
-        r"$V^H \bar{s}$"
-    )
-    draw_panel(
-        axes[1],
-        v1b_2d,
-        v2_2d,
-        r"$V^H \bar{s}$",
-        r"$\Sigma V^H \bar{s}$",
-        r"$\Sigma V^H \bar{s}$"
-    )
-    draw_panel(
-        axes[2],
-        v2b_2d,
-        v3_2d,
-        r"$\Sigma V^H \bar{s}$",
-        r"$U \Sigma V^H \bar{s}$",
-        r"$U \Sigma V^H \bar{s}$"
-    )
+    for ax, (before, after, label_a, label_b, title) in zip(axes, panels):
+        # determine plot limits based on vector magnitude, with some padding
+        limit = max(np.linalg.norm(before), np.linalg.norm(after), 1) * 1.2
+        # draw vectors
+        ax.quiver(0, 0, before[0], before[1], angles='xy', scale_units='xy', 
+                scale=1, color='red', label=f"Before: {label_a}", alpha=0.7)
+        ax.quiver(0, 0, after[0], after[1], angles='xy', scale_units='xy', 
+                scale=1, color='blue', label=f"After: {label_b}", alpha=0.4)
+        # format axis
+        ax.set_xlim(-limit, limit)
+        ax.set_ylim(-limit, limit)
+        ax.set_aspect('equal')
+        ax.axhline(0, color='black', lw=0.5)
+        ax.axvline(0, color='black', lw=0.5)
+        ax.grid(True, linestyle='--', alpha=0.5)
+        ax.legend(fontsize='small')
+        # print titles
+        ax.set_title(title, fontsize=12)
 
     plt.tight_layout()
     plt.show()
+
 
 def spectral_analysis_and_error_quantification(array):
     # Re-make the matrices U, S, Vh & Σ_i
@@ -384,10 +266,9 @@ def compression_ratio(array):
     # Possibly add a way to show this working on the photo input
     # Make TS look nice
 
-file_path = "veggies.png"
-image_array = matrix_normalization(file_path)
+file_path = "towson.jpg"
+image_array = matrix_normalization(file_path, True)
 orthogonality_check(image_array)
-#visualize_svd(image_array)
-visualize_svd_vibe(image_array)
+visualize_svd(image_array)
 spectral_analysis_and_error_quantification(image_array)
 compression_ratio(image_array)
