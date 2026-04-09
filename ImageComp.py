@@ -75,6 +75,12 @@ def orthogonality_check(array):
     print("||VtV - I_v||:", np.linalg.norm(VtV - I_v))
 
 def visualize_svd(array):
+    """
+    Each panel is displayed in its own orthonormal 2D basis built from input and output vectors (v_before, v_after)
+    This shows the effect of the transformation on that vector explicitly.
+    Because each panel is in projected into its own 2D basis,
+     the visual angle drawn in the plot is local and not directly comparable across panels.
+    """
     m,n = array.shape # m = row, n = col
     U,S,Vh = np.linalg.svd(array, full_matrices=False)
     r = len(S) # r = rank
@@ -91,32 +97,35 @@ def visualize_svd(array):
         if norm < 1e-10: # check if its a zero vector
             return np.zeros_like(v) # return a zero vector of the same shape to avoid divbyzero
         return v / norm
-
-    def ON_basis(a,b):
-        # perform gram schmidt to build orthonormal basis
-        q_1 = normalize(a) # normalize v_1 and assign to q_1
-        b_perp = b - q_1.T @ b * q_1 # find b_perp to q_1
-        q_2 = normalize(b_perp) # normalize b_perp and assign to q_2
-        basis = np.column_stack([q_1,q_2]) # build matrix from basis vectors
-        return basis 
+   
+    def ON_basis(v_b, v_a):
+        # perform Gram-Schmidt to build orthonormal 2D basis
+        q1 = normalize(v_b)
+        v_perp = v_a - (q1.T @ v_a) * q1
+        # guard against collinear v_before, v_after
+        if np.linalg.norm(v_perp) < 1e-10:  # if the perpendicular vector is 0, use standard basis.
+            e = np.zeros_like(q1)
+            e[0] = 1.0
+            if len(q1) > 1 and abs(q1.T @ e) > 0.9:
+                e[0] = 0.0
+                e[1] = 1.0
+            v_perp = e - (q1.T @ e) * q1
+        q2 = normalize(v_perp)  # otherwise use gram schmidt
+        return np.column_stack([q1, q2])
 
     def embed(v,dim):
         E = np.zeros(dim, dtype=float) # build a new zeros matrix of size dim
         E[:len(v)]=v # embed the vector in the first column
         return E
-    
-    def coord_plane(v,basis):
-        # build a new 2-dimensional coordinate plane
-        return basis.T @ v
-    
+
     def get_panel_coords(v_before, v_after, dim):
-        v_a = embed(v_before, dim)
-        v_b = embed(v_after, dim)
+        v_b = embed(v_before, dim)
+        v_a = embed(v_after, dim)
         # construct orthonormal basis
-        basis = ON_basis(v_a, v_b)
+        basis = ON_basis(v_b, v_a)
         # project onto plane
-        c_before = coord_plane(v_a, basis)
-        c_after = coord_plane(v_b, basis)
+        c_before = basis.T@v_b
+        c_after = basis.T@v_a
         return c_before, c_after
 
     # Construct vectors within 2d coordinate system
@@ -137,41 +146,38 @@ def visualize_svd(array):
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     
-    def angle_between(a, b):
-        # compute angle in radians, then convert to degrees
-        na = np.linalg.norm(a)
-        nb = np.linalg.norm(b)
-        # check if 0 to prevent divbyzero
-        if na < 1e-10 or nb < 1e-10:
+    def signed_angle_2d(v_b, v_a):
+        # guard against 0 length vectors
+        if np.linalg.norm(v_b) < 1e-10 or np.linalg.norm(v_a) < 1e-10:
             return 0.0
-        cos_theta = np.clip(np.dot(a, b) / (na * nb), -1.0, 1.0) # restrict to [-1,1] against rounding
-        return np.degrees(np.arccos(cos_theta))
+        # check the signed 2d angle using the formula
+        cross = v_b[0] * v_a[1] - v_b[1] * v_a[0]
+        dot = v_b[0] * v_a[0] + v_b[1] * v_a[1]
+        return np.degrees(np.arctan2(cross, dot))
     
-    def length_change_perc(before,after):
-        length_before = np.linalg.norm(before)
-        length_after = np.linalg.norm(after)
+    def length_change_perc(v_b, v_a):
+        length_before = np.linalg.norm(v_b)
+        length_after = np.linalg.norm(v_a)
         if length_before < 1e-10:
-            scale_pct = 0.0
+            pct_change = 0.0
         else:
             pct_change = ((length_after - length_before) / length_before) * 100
         if abs(pct_change) < 1e-5:
-                pct_change = 0.0
+            pct_change = 0.0
         return pct_change
 
-    for ax, (before, after, label_a, label_b, title) in zip(axes, panels):
-        angle = angle_between(before, after)
-        pct_change = length_change_perc(before,after)
+    for ax, (v_b, v_a, label_b, label_a, title) in zip(axes, panels): # extract relevant information from each panel.
+        angle = signed_angle_2d(v_b, v_a)   # calculate the angle change
+        pct_change = length_change_perc(v_b,v_a)    # calculate the length change
         info = plt.Line2D([], [], linestyle='none',
                     label=f"Rescale {pct_change:.1f}%\nθ = {angle:.1f}°")
         # determine plot limits based on vector magnitude, with some padding
-        limit = max(np.linalg.norm(before), np.linalg.norm(after), 1) * 1.2
-
+        limit = max(np.linalg.norm(v_b), np.linalg.norm(v_a), 1) * 1.2
         # draw vectors from (0,0) to (vector_x,vector_y)
-        ax.quiver(0, 0, before[0], before[1], angles='xy', scale_units='xy',
-                scale=1, color='red', label=f"Before: {label_a}", alpha=0.7)
-        ax.quiver(0, 0, after[0], after[1], angles='xy', scale_units='xy',
-                scale=1, color='blue', label=f"After: {label_b}", alpha=0.4)
-
+        ax.quiver(0, 0, v_b[0], v_b[1], angles='xy', scale_units='xy',
+                scale=1, color='red', label=f"Before: {label_b}", alpha=0.7)
+        ax.quiver(0, 0, v_a[0], v_a[1], angles='xy', scale_units='xy',
+                scale=1, color='blue', label=f"After: {label_a}", alpha=0.4)
         # format axis
         ax.set_xlim(-limit, limit)
         ax.set_ylim(-limit, limit)
@@ -185,6 +191,7 @@ def visualize_svd(array):
         ax.legend(handles, labels, fontsize='small')
         ax.set_title(title, fontsize=12)
 
+    # display plots to user.
     plt.tight_layout()
     plt.show()
 
