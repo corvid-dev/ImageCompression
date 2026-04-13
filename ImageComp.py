@@ -8,8 +8,25 @@ from skimage.util import img_as_float
 # Visualization
 import matplotlib.pyplot as plt
 import seaborn as sns
+from dataclasses import dataclass
+
+
+@dataclass(slots=True)
+class SVDForm:
+    A: np.ndarray
+    U:  np.ndarray
+    S:  np.ndarray
+    Vh: np.ndarray
+    @classmethod
+    def from_matrix(cls, A: np.ndarray, full_matrices: bool = False) -> "SVDForm":
+        U, S, Vh = np.linalg.svd(A, full_matrices=full_matrices)
+        return cls(A=A, U=U, S=S, Vh=Vh)
 
 def matrix_normalization(path, print=False):
+    """
+    Load an image from path and convert it to a normalized grayscale matrix.
+    If print=False, then do not display the image conversion to the user.
+    """
     # https://scikit-image.org/docs/0.24.x/api/skimage.html
     #1. Load the path and extract image.
     img = io.imread(path)
@@ -41,27 +58,32 @@ def matrix_normalization(path, print=False):
     # 4. Return array of normalized floats
     return A
 
-def orthogonality_check(array):
+def orthogonality_check(svd):
+    """
+    Check for orthogonality by comparing products to identity matrices of same size.
+    For any orthonormal matrix Q, Q^TQ=I. 
+    For compact SVD, U is m x r and and Vh is r x n.
+    Hence, UtU = I_r and VVt = I_r.
+    """
     #1. Extract svd form
     # https://numpy.org/doc/stable/reference/generated/numpy.linalg.svd.html
     #U, S, Vh = np.linalg.svd(array) # full svd
-    U, S, Vh = np.linalg.svd(array, full_matrices = False) # compact svd
+    UtU = svd.U.T @ svd.U
+    VVt = svd.Vh @ svd.Vh.T
     # U  -> Unitary Matrix, Orthonormal
     # S  -> Diagonal of Σ, contains σ_i
     # Vh -> V^H, Hermitian
-    UtU = U.T @ U
-    VtV = Vh @ Vh.T
 
     #2. Make Identity Matrices for comparison
     # https://numpy.org/devdocs/reference/generated/numpy.eye.html
     I_u = np.eye(UtU.shape[0]) # Create I of size u for comparison
-    I_v = np.eye(VtV.shape[0]) # Create I of size v for comparison
+    I_v = np.eye(VVt.shape[0]) # Create I of size v for comparison
     
     #3. Check if close
     # https://numpy.org/devdocs/reference/generated/numpy.isclose.html
     # Strict Tolerance
     is_u_close = np.allclose(UtU, I_u)
-    is_v_close = np.allclose(VtV, I_v)
+    is_v_close = np.allclose(VVt, I_v)
     
     # Relaxed tolerance
     #is_u_close = np.allclose(UtU, I_u, atol=1e-5)
@@ -72,17 +94,19 @@ def orthogonality_check(array):
     #4. Compute distance between each matrix and identity matrix
     # https://numpy.org/doc/2.1/reference/generated/numpy.linalg.norm.html
     print("||UtU - I_u||:", np.linalg.norm(UtU - I_u))
-    print("||VtV - I_v||:", np.linalg.norm(VtV - I_v))
+    print("||VVt - I_v||:", np.linalg.norm(VVt - I_v))
 
-def visualize_svd(array):
+def visualize_svd(svd):
     """
-    Each panel is displayed in its own orthonormal 2D basis built from input and output vectors (v_before, v_after)
-    This shows the effect of the transformation on that vector explicitly.
-    Because each panel is in projected into its own 2D basis,
-     the visual angle drawn in the plot is local and not directly comparable across panels.
+    Visualize the SVD transformation on a test vector s_bar.
+    Each step is shown in a 2D orthonormal basis built via Gram-Schmidt from the
+    input and output vectors, with the input aligned to the x-axis. This highlights
+    the rotation and scaling at each stage.
+    Each panel uses a different local basis, so angles and lengths are not directly
+    comparable across panels.
     """
-    m,n = array.shape # m = row, n = col
-    U,S,Vh = np.linalg.svd(array, full_matrices=False)
+    m,n = svd.A.shape # m = row, n = col
+    U, S, Vh = svd.U, svd.S, svd.Vh
     r = len(S) # r = rank
     s_bar = np.ones(n, dtype=float) # test vector <1,1,...,1>
     Sigma = np.diag(S)
@@ -144,6 +168,7 @@ def visualize_svd(array):
         (p3_v2, p3_v3, r"$\Sigma V^H \bar{s}$", r"$U \Sigma V^H \bar{s}$", r"Rotation by $U$")
     ]
 
+    # build plot
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     
     def signed_angle_2d(v_b, v_a):
@@ -166,6 +191,7 @@ def visualize_svd(array):
             pct_change = 0.0
         return pct_change
 
+    # draw the plots
     for ax, (v_b, v_a, label_b, label_a, title) in zip(axes, panels): # extract relevant information from each panel.
         angle = signed_angle_2d(v_b, v_a)   # calculate the angle change
         pct_change = length_change_perc(v_b,v_a)    # calculate the length change
@@ -196,16 +222,17 @@ def visualize_svd(array):
     plt.show()
 
 
-def spectral_analysis_and_error_quantification(array):
+def spectral_analysis_and_error_quantification(svd):
     # Re-make the matrices U, S, Vh & Σ_i
-    U, S, Vh = np.linalg.svd(array, full_matrices=False)  # compact svd
-    Sigma_i = np.diag(S[:])
+    array, U, S, Vh = svd.A, svd.U, svd.S, svd.Vh
+    #Sigma_i = np.diag(S[:])
     # Tuple to iterate through the different LOG scales
     LOG_SCALE = (1,10,50,100, 71) # can remove 71 for final submission
 
     # Plot singular values on a log scale
     fig, ax = plt.subplots(figsize=(10, 4))
-    ax.semilogy(Sigma_i, color='steelblue')
+    #ax.semilogy(Sigma_i, color='steelblue')
+    ax.semilogy(S, color='steelblue')
     # Title/Axis Labels
     ax.set_title("Singular Values (Log Scale)")
     ax.set_xlabel("Index i")
@@ -251,9 +278,9 @@ def spectral_analysis_and_error_quantification(array):
     plt.tight_layout()
     plt.show()
 
-def compression_ratio(array):
+def compression_ratio(svd):
     # Re-make U, S & Vh again part 3
-    U, S, Vh = np.linalg.svd(array, full_matrices=False)  # compact svd
+    array, U, S, Vh = svd.A, svd.U, svd.S, svd.Vh
     # ε = 0.001
     epsilon = 1e-3
     # m = num rows  |  n = num cols
@@ -286,7 +313,8 @@ def compression_ratio(array):
 
 file_path = "balloons.jpg"
 image_array = matrix_normalization(file_path, print=True)
-orthogonality_check(image_array)
-visualize_svd(image_array)
-spectral_analysis_and_error_quantification(image_array)
-compression_ratio(image_array)
+compactsvd = SVDForm.from_matrix(image_array, full_matrices=False) # if full_matrices=True, will use full SVD form.
+orthogonality_check(compactsvd)
+visualize_svd(compactsvd)
+spectral_analysis_and_error_quantification(compactsvd)
+compression_ratio(compactsvd)
