@@ -69,7 +69,7 @@ def orthogonality_check(svd):
     # https://numpy.org/doc/stable/reference/generated/numpy.linalg.svd.html
     #U, S, Vh = np.linalg.svd(array) # full svd
     UtU = svd.U.T @ svd.U
-    VVt = svd.Vh @ svd.Vh.T
+    VtV = svd.Vh @ svd.Vh.T
     # U  -> Unitary Matrix, Orthonormal
     # S  -> Diagonal of Σ, contains σ_i
     # Vh -> V^H, Hermitian
@@ -77,13 +77,13 @@ def orthogonality_check(svd):
     #2. Make Identity Matrices for comparison
     # https://numpy.org/devdocs/reference/generated/numpy.eye.html
     I_u = np.eye(UtU.shape[0]) # Create I of size u for comparison
-    I_v = np.eye(VVt.shape[0]) # Create I of size v for comparison
+    I_v = np.eye(VtV.shape[0]) # Create I of size v for comparison
     
     #3. Check if close
     # https://numpy.org/devdocs/reference/generated/numpy.isclose.html
     # Strict Tolerance
     is_u_close = np.allclose(UtU, I_u)
-    is_v_close = np.allclose(VVt, I_v)
+    is_v_close = np.allclose(VtV, I_v)
     
     # Relaxed tolerance
     #is_u_close = np.allclose(UtU, I_u, atol=1e-5)
@@ -94,14 +94,13 @@ def orthogonality_check(svd):
     #4. Compute distance between each matrix and identity matrix
     # https://numpy.org/doc/2.1/reference/generated/numpy.linalg.norm.html
     print("||UtU - I_u||:", np.linalg.norm(UtU - I_u))
-    print("||VVt - I_v||:", np.linalg.norm(VVt - I_v))
+    print("||VVt - I_v||:", np.linalg.norm(VtV - I_v))
 
 def visualize_svd(svd):
     """
-    Visualize the SVD transformation on a test vector s_bar.
+    Visualize the SVD transformation on test vector s_bar.
     Each step is shown in a 2D orthonormal basis built via Gram-Schmidt from the
-    input and output vectors, with the input aligned to the x-axis. This highlights
-    the rotation and scaling at each stage.
+    input and output vectors. The input vector is aligned to the x-axis.
     Each panel uses a different local basis, so angles and lengths are not directly
     comparable across panels.
     """
