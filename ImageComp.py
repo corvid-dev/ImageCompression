@@ -1,13 +1,13 @@
 "Import Libraries"
 # Linear Algebra
 import numpy as np
+from numpy import ndarray
 # Image Processing
 from skimage import io
 from skimage.color import rgb2gray
 from skimage.util import img_as_float
 # Visualization
 import matplotlib.pyplot as plt
-import seaborn as sns
 from dataclasses import dataclass
 
 
@@ -61,7 +61,7 @@ def matrix_normalization(path, print=False):
 def orthogonality_check(svd):
     """
     Check for orthogonality by comparing products to identity matrices of same size.
-    For any orthonormal matrix Q, Q^TQ=I. 
+    For any orthonormal matrix Q, Q^TQ=I.
     For compact SVD, U is m x r and and Vh is r x n.
     Hence, UtU = I_r and VVt = I_r.
     """
@@ -220,13 +220,54 @@ def visualize_svd(svd):
     plt.tight_layout()
     plt.show()
 
+# Helper Function
+def part4_5_grapher(title, array: ndarray, U: ndarray, S: ndarray, Vh: ndarray, LOG_SCALE: tuple, addExtraData=False, A_frob=None, energy_dSum=None):
+    # Makes a number of subplots equal to the length of LOG_SCALE
+    fig, axes = plt.subplots(1, len(LOG_SCALE), figsize=(16, 4))
+
+    # Loops through the values in LOG_SCALE and assigns the values index to i & the value to k
+    for i, k in enumerate(LOG_SCALE):
+        # Calculates A_k using:
+        # ∑^k_{i=1} (σ_i u_i v^T)
+        A_k = (U[:, :k] * S[:k]) @ Vh[:k, :]
+
+        if addExtraData:
+            # Calculate the relative error using:
+            # Error = (||A − A_k||_F) / (||A||_F)
+            rel_error = np.linalg.norm(array - A_k, 'fro') / A_frob
+            # Calculate the energy using:
+            # Energy(k) = (∑^k_{i=1} σ^2_i) / (∑^n_{i=1} σ^2_i)
+            energy_k = np.sum(S[:k] ** 2) / energy_dSum
+
+            # Add relative error and energy to the top of each plot
+            axes[i].set_title(
+                f"k = {k}\nError: {rel_error:.4f}\nEnergy: {energy_k:.4f}"
+            )
+
+            # Print metrics to console for not fancy viewing
+            print(f"k = {k:>4} | Relative Error: {rel_error:.6f} | Energy: {energy_k:.6f}")
+        else:
+            axes[i].set_title(
+                f"k = {k}"
+            )
+            # Print metrics to console for not fancy viewing
+            print(f"k = {k:>4}")
+
+        # Plot A_k to one of the sub-graphs from above
+        axes[i].imshow(A_k, cmap='gray')
+        axes[i].axis('off')
+
+    # Plot making and construction
+    plt.suptitle(title, fontsize=14)
+    plt.tight_layout()
+    plt.show()
 
 def spectral_analysis_and_error_quantification(svd):
     # Re-make the matrices U, S, Vh & Σ_i
     array, U, S, Vh = svd.A, svd.U, svd.S, svd.Vh
     #Sigma_i = np.diag(S[:])
     # Tuple to iterate through the different LOG scales
-    LOG_SCALE = (1,10,50,100, 71) # can remove 71 for final submission
+    LOG_SCALE = (1,10,50,100) # can remove 71 for final submission
 
     # Plot singular values on a log scale
     fig, ax = plt.subplots(figsize=(10, 4))
@@ -247,39 +288,12 @@ def spectral_analysis_and_error_quantification(svd):
     # Calculates the constant denominator for Energy(k) to reduce # calculations
     energy_denominator_sum = np.sum(S ** 2)
 
-    # Makes a number of subplots equal to the length of LOG_SCALE
-    fig, axes = plt.subplots(1, len(LOG_SCALE), figsize=(16, 4))
-
-    # Loops through the values in LOG_SCALE and assigns the values index to i & the value to k
-    for i, k in enumerate(LOG_SCALE):
-        # Calculates A_k using:
-        # ∑^k_{i=1} (σ_i u_i v^T)
-        A_k = (U[:, :k] * S[:k]) @ Vh[:k, :]
-        # Calculate the relative error using:
-        # Error = (||A − A_k||_F) / (||A||_F)
-        rel_error = np.linalg.norm(array-A_k, 'fro') / A_frobenius
-        # Calculate the energy using:
-        # Energy(k) = (∑^k_{i=1} σ^2_i) / (∑^n_{i=1} σ^2_i)
-        energy_k = np.sum(S[:k] ** 2)/energy_denominator_sum
-
-        # Plot A_k to one of the sub-graphs from above
-        axes[i].imshow(A_k, cmap='gray')
-        axes[i].set_title(
-            f"k = {k}\nError: {rel_error:.4f}\nEnergy: {energy_k:.4f}"
-        )
-        axes[i].axis('off')
-
-        # Print metrics to console for not fancy viewing
-        print(f"k = {k:>4} | Relative Error: {rel_error:.6f} | Energy: {energy_k:.6f}")
-
-    # Plot making and construction
-    plt.suptitle(r"Rank-k Approximations $(A_k)$", fontsize=14)
-    plt.tight_layout()
-    plt.show()
+    part4_5_grapher(r"Rank-k Approximations $(A_k)$", array, U, S, Vh, LOG_SCALE, True, A_frobenius, energy_denominator_sum)
 
 def compression_ratio(svd):
     # Re-make U, S & Vh again part 3
     array, U, S, Vh = svd.A, svd.U, svd.S, svd.Vh
+    S_1 = S
     # ε = 0.001
     epsilon = 1e-3
     # m = num rows  |  n = num cols
@@ -289,13 +303,13 @@ def compression_ratio(svd):
 
     # ||A - A_k||_2 = σ_{k+1}, so find smallest k where σ_{k+1} < ε
     k = None
-    for i in range(len(S) - 1):
+    for i in range(len(S_1) - 1):
         if S[i + 1] < epsilon:
             k = i + 1
             break
     # Edge case: all singular values satisfy tolerance
     if k is None:
-        k = len(S)
+        k = len(S_1)
 
     # Calculate the compression ratio (CR) using:
     # CR = (m × n) / (k(m + n + 1))
@@ -305,15 +319,12 @@ def compression_ratio(svd):
 
     # Theory on a hunch:
     # The decimal given by this function, you multiply that by 100 to get the optimal compression rate per photo
-
-    # TODO:
-    # Possibly add a way to show this working on the photo input
-    # Make TS look nice
+    part4_5_grapher(r"Compresstion Ratio k-val vs. k$=100$", array, U, S, Vh, (int(CR*100), 100))
 
 file_path = "balloons.jpg"
 image_array = matrix_normalization(file_path, print=True)
-compactsvd = SVDForm.from_matrix(image_array, full_matrices=False) # if full_matrices=True, will use full SVD form.
-orthogonality_check(compactsvd)
-visualize_svd(compactsvd)
-spectral_analysis_and_error_quantification(compactsvd)
-compression_ratio(compactsvd)
+compactSVD = SVDForm.from_matrix(image_array, full_matrices=False) # if full_matrices=True, will use full SVD form.
+orthogonality_check(compactSVD)
+visualize_svd(compactSVD)
+spectral_analysis_and_error_quantification(compactSVD)
+compression_ratio(compactSVD)
