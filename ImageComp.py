@@ -88,13 +88,13 @@ def orthogonality_check(svd):
     # Relaxed tolerance
     #is_u_close = np.allclose(UtU, I_u, atol=1e-5)
     #is_v_close = np.allclose(VtV, I_v, atol=1e-5)
-    print("U orthogonal:", is_u_close)
-    print("V orthogonal:", is_v_close)
-    
+
     #4. Compute distance between each matrix and identity matrix
     # https://numpy.org/doc/2.1/reference/generated/numpy.linalg.norm.html
     print("||UtU - I_u||:", np.linalg.norm(UtU - I_u))
     print("||VVt - I_v||:", np.linalg.norm(VtV - I_v))
+    print("U numerically orthogonal:", is_u_close)
+    print("V numerically orthogonal:", is_v_close)
 
 def visualize_svd(svd):
     """
