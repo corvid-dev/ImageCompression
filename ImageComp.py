@@ -247,11 +247,11 @@ def part4_5_grapher(title, array: ndarray, U: ndarray, S: ndarray, Vh: ndarray, 
 
         # Add relative error and energy to the top of each plot
         axes[i].set_title(
-            f"k = {k}\nError: {rel_error:.4f}\nEnergy: {energy_k:.4f}"
+            f"k = {k}\nError: {rel_error:.4e}\nEnergy: {energy_k:.4e}"
         )
 
         # Print metrics to console for not fancy viewing
-        print(f"k = {k:>4} | Relative Error: {rel_error:.6f} | Energy: {energy_k:.6f}")
+        print(f"k = {k:>4} | Relative Error: {rel_error:.4e} | Energy: {energy_k:.4e}")
 
         # Plot A_k to one of the sub-graphs from above
         axes[i].imshow(A_k, cmap='gray')
@@ -303,12 +303,12 @@ def compression_ratio(svd):
 
     # Prints out the optimal k value and the CR
     print(f"Optimal k: {k}")
-    print(f"Compression Ratio: {CR:.6f}")
+    print(f"Compression Ratio: {CR:.4e}")
 
     original_img_k_val = min(m, n)
     part4_5_grapher(f"Optimal k-Value vs. Original Photo", array, U, S, Vh, (k, original_img_k_val))
 
-file_path = "balloons.jpg"
+file_path = "control_10x10.jpg"
 image_array = matrix_normalization(file_path, print=True)
 compactSVD = SVDForm.from_matrix(image_array, full_matrices=False) # if full_matrices=True, will use full SVD form.
 orthogonality_check(compactSVD)
