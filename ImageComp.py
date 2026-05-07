@@ -17,10 +17,12 @@ class SVDForm:
     U:  np.ndarray
     S:  np.ndarray
     Vh: np.ndarray
+
     @classmethod
     def from_matrix(cls, A: np.ndarray, full_matrices: bool = False) -> "SVDForm":
         U, S, Vh = np.linalg.svd(A, full_matrices=full_matrices)
         return cls(A=A, U=U, S=S, Vh=Vh)
+
 
 def matrix_normalization(path, print=False):
     """
@@ -28,22 +30,22 @@ def matrix_normalization(path, print=False):
     If print=False, then do not display the image conversion to the user.
     """
     # https://scikit-image.org/docs/0.24.x/api/skimage.html
-    #1. Load the path and extract image.
+    # 1. Load the path and extract image.
     img = io.imread(path)
 
-    #2. Normalize, convert image to float64 and scale between [0,1].
+    # 2. Normalize, convert image to float64 and scale between [0,1].
     img_float = img_as_float(img)
 
-    #2. Make grayscale.
+    # 2. Make grayscale.
     # Check if already grayscale
-    if img_float.ndim == 2: 
+    if img_float.ndim == 2:
         A = img_float
     # Otherwise convert to grayscale
-    else: 
+    else:
         # Handle RGBA by removing alpha channel if it exists
         A = rgb2gray(img_float[:, :, :3])
 
-    if(print):
+    if (print):
         # 3. Display converted image.
         fig, axes = plt.subplots(1, 2, figsize=(12, 6))
         axes[0].imshow(img)
@@ -58,6 +60,7 @@ def matrix_normalization(path, print=False):
     # 4. Return array of normalized floats
     return A
 
+
 def orthogonality_check(svd):
     """
     Check for orthogonality by comparing products to identity matrices of same size.
@@ -65,36 +68,37 @@ def orthogonality_check(svd):
     For compact SVD, U is m x r and and Vh is r x n.
     Hence, UtU = I_r and VVt = I_r.
     """
-    #1. Extract svd form
+    # 1. Extract svd form
     # https://numpy.org/doc/stable/reference/generated/numpy.linalg.svd.html
-    #U, S, Vh = np.linalg.svd(array) # full svd
+    # U, S, Vh = np.linalg.svd(array) # full svd
     UtU = svd.U.T @ svd.U
     VtV = svd.Vh @ svd.Vh.T
     # U  -> Unitary Matrix, Orthonormal
     # S  -> Diagonal of Σ, contains σ_i
     # Vh -> V^H, Hermitian
 
-    #2. Make Identity Matrices for comparison
+    # 2. Make Identity Matrices for comparison
     # https://numpy.org/devdocs/reference/generated/numpy.eye.html
-    I_u = np.eye(UtU.shape[0]) # Create I of size u for comparison
-    I_v = np.eye(VtV.shape[0]) # Create I of size v for comparison
-    
-    #3. Check if close
+    I_u = np.eye(UtU.shape[0])  # Create I of size u for comparison
+    I_v = np.eye(VtV.shape[0])  # Create I of size v for comparison
+
+    # 3. Check if close
     # https://numpy.org/devdocs/reference/generated/numpy.isclose.html
     # Strict Tolerance
     is_u_close = np.allclose(UtU, I_u)
     is_v_close = np.allclose(VtV, I_v)
-    
-    # Relaxed tolerance
-    #is_u_close = np.allclose(UtU, I_u, atol=1e-5)
-    #is_v_close = np.allclose(VtV, I_v, atol=1e-5)
 
-    #4. Compute distance between each matrix and identity matrix
+    # Relaxed tolerance
+    # is_u_close = np.allclose(UtU, I_u, atol=1e-5)
+    # is_v_close = np.allclose(VtV, I_v, atol=1e-5)
+
+    # 4. Compute distance between each matrix and identity matrix
     # https://numpy.org/doc/2.1/reference/generated/numpy.linalg.norm.html
     print("||UtU - I_u||:", np.linalg.norm(UtU - I_u))
     print("||VVt - I_v||:", np.linalg.norm(VtV - I_v))
     print("U numerically orthogonal:", is_u_close)
     print("V numerically orthogonal:", is_v_close)
+
 
 def visualize_svd(svd):
     """
@@ -104,29 +108,67 @@ def visualize_svd(svd):
     Each panel uses a different local basis, so angles and lengths are not directly
     comparable across panels.
     """
-    m,n = svd.A.shape # m = row, n = col
+    m, n = svd.A.shape  # m = row, n = col
     U, S, Vh = svd.U, svd.S, svd.Vh
-    r = len(S) # r = rank
-    s_bar = np.ones(n, dtype=float) # test vector <1,1,...,1>
+    r = len(S)  # r = rank
+    s_bar = np.ones(n, dtype=float)  # test vector <1,1,...,1>
     Sigma = np.diag(S)
-    
+
     v_1 = Vh @ s_bar
     v_2 = Sigma @ v_1
     v_3 = U @ v_2
 
+    def true_angle(v_b, v_a):
+        nb = np.linalg.norm(v_b)
+        na = np.linalg.norm(v_a)
+
+        # guard against zero vectors
+        if nb < 1e-10 or na < 1e-10:
+            return 0.0
+
+        # cosine formula
+        cos_theta = np.dot(v_b, v_a) / (nb * na)
+
+        # numerical stability
+        cos_theta = np.clip(cos_theta, -1.0, 1.0)
+
+        return np.degrees(np.arccos(cos_theta))
+
+    def length_change_perc(v_b, v_a):
+        length_before = np.linalg.norm(v_b)
+        length_after = np.linalg.norm(v_a)
+        if length_before < 1e-10:
+            pct_change = 0.0
+        else:
+            pct_change = ((length_after - length_before) / length_before) * 100
+        if abs(pct_change) < 1e-5:
+            pct_change = 0.0
+        return pct_change
+
+    angle1 = true_angle(s_bar, v_1)
+    angle2 = true_angle(v_1, v_2)
+    # angle3 = true_angle(v_2, v_3)
+    angle3 = None
+
+    scale1 = length_change_perc(s_bar, v_1)
+    scale2 = length_change_perc(v_1, v_2)
+    scale3 = length_change_perc(v_2, v_3)
+
     def normalize(v):
         # turn any vector into a unit vector
         norm = np.linalg.norm(v)
-        if norm < 1e-10: # check if its a zero vector
-            return np.zeros_like(v) # return a zero vector of the same shape to avoid divbyzero
+        if norm < 1e-10:  # check if its a zero vector
+            # return a zero vector of the same shape to avoid divbyzero
+            return np.zeros_like(v)
         return v / norm
-   
+
     def ON_basis(v_b, v_a):
         # perform Gram-Schmidt to build orthonormal 2D basis
         q1 = normalize(v_b)
         v_perp = v_a - (q1.T @ v_a) * q1
         # guard against collinear v_before, v_after
-        if np.linalg.norm(v_perp) < 1e-10:  # if the perpendicular vector is 0, use standard basis.
+        # if the perpendicular vector is 0, use standard basis.
+        if np.linalg.norm(v_perp) < 1e-10:
             e = np.zeros_like(q1)
             e[0] = 1.0
             if len(q1) > 1 and abs(q1.T @ e) > 0.9:
@@ -136,9 +178,9 @@ def visualize_svd(svd):
         q2 = normalize(v_perp)  # otherwise use gram schmidt
         return np.column_stack([q1, q2])
 
-    def embed(v,dim):
-        E = np.zeros(dim, dtype=float) # build a new zeros matrix of size dim
-        E[:len(v)]=v # embed the vector in the first column
+    def embed(v, dim):
+        E = np.zeros(dim, dtype=float)  # build a new zeros matrix of size dim
+        E[:len(v)] = v  # embed the vector in the first column
         return E
 
     def get_panel_coords(v_before, v_after, dim):
@@ -162,14 +204,19 @@ def visualize_svd(svd):
     p3_v2, p3_v3 = get_panel_coords(v_2, v_3, m)
 
     panels = [
-        (p1_s, p1_v1, r"$\bar{s}$", r"$V^H \bar{s}$", r"Rotation by $V^H$"),
-        (p2_v1, p2_v2, r"$V^H \bar{s}$", r"$\Sigma V^H \bar{s}$", r"Scaling by $\Sigma$"),
-        (p3_v2, p3_v3, r"$\Sigma V^H \bar{s}$", r"$U \Sigma V^H \bar{s}$", r"Rotation by $U$")
+        (p1_s, p1_v1, angle1, scale1,
+         r"$\bar{s}$", r"$V^H \bar{s}$", r"Rotation by $V^H$"),
+
+        (p2_v1, p2_v2, angle2, scale2,
+         r"$V^H \bar{s}$", r"$\Sigma V^H \bar{s}$", r"Scaling by $\Sigma$"),
+
+        (p3_v2, p3_v3, angle3, scale3,
+         r"$\Sigma V^H \bar{s}$", r"$U \Sigma V^H \bar{s}$", r"Rotation by $U$")
     ]
 
     # build plot
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-    
+
     def signed_angle_2d(v_b, v_a):
         # guard against 0 length vectors
         if np.linalg.norm(v_b) < 1e-10 or np.linalg.norm(v_a) < 1e-10:
@@ -178,31 +225,34 @@ def visualize_svd(svd):
         cross = v_b[0] * v_a[1] - v_b[1] * v_a[0]
         dot = v_b[0] * v_a[0] + v_b[1] * v_a[1]
         return np.degrees(np.arctan2(cross, dot))
-    
-    def length_change_perc(v_b, v_a):
-        length_before = np.linalg.norm(v_b)
-        length_after = np.linalg.norm(v_a)
-        if length_before < 1e-10:
-            pct_change = 0.0
-        else:
-            pct_change = ((length_after - length_before) / length_before) * 100
-        if abs(pct_change) < 1e-5:
-            pct_change = 0.0
-        return pct_change
 
     # draw the plots
-    for ax, (v_b, v_a, label_b, label_a, title) in zip(axes, panels): # extract relevant information from each panel.
-        angle = signed_angle_2d(v_b, v_a)   # calculate the angle change
-        pct_change = length_change_perc(v_b,v_a)    # calculate the length change
-        info = plt.Line2D([], [], linestyle='none',
-                    label=f"Rescale {pct_change:.1f}%\nθ = {angle:.1f}°")
+    # extract relevant information from each panel.
+    for ax, (v_b, v_a, angle, scale, label_b, label_a, title) in zip(axes, panels):
+        projangle = signed_angle_2d(v_b, v_a)   # calculate the angle change
+        # calculate the length change
+        projpct_change = length_change_perc(v_b, v_a)
+        angle_text = "N/A" if angle is None else f"{angle:.1f}°"
+        info = plt.Line2D(
+            [],
+            [],
+            linestyle='none',
+            label=(
+                f"Original:\n"
+                f"Rescale = {scale:.1f}%\n"
+                f"Rotation = {angle_text}\n\n"
+                f"Projected:\n"
+                f"Recale = {projpct_change:.1f}%\n"
+                f"Rotation = {projangle:.1f}°"
+            )
+        )
         # determine plot limits based on vector magnitude, with some padding
         limit = max(np.linalg.norm(v_b), np.linalg.norm(v_a), 1) * 1.2
         # draw vectors from (0,0) to (vector_x,vector_y)
         ax.quiver(0, 0, v_b[0], v_b[1], angles='xy', scale_units='xy',
-                scale=1, color='red', label=f"Before: {label_b}", alpha=0.7)
+                  scale=1, color='red', label=f"Before: {label_b}", alpha=0.7)
         ax.quiver(0, 0, v_a[0], v_a[1], angles='xy', scale_units='xy',
-                scale=1, color='blue', label=f"After: {label_a}", alpha=0.4)
+                  scale=1, color='blue', label=f"After: {label_a}", alpha=0.4)
         # format axis
         ax.set_xlim(-limit, limit)
         ax.set_ylim(-limit, limit)
@@ -221,6 +271,8 @@ def visualize_svd(svd):
     plt.show()
 
 # Helper Function
+
+
 def part4_5_grapher(title, array: ndarray, U: ndarray, S: ndarray, Vh: ndarray, LOG_SCALE: tuple):
     # Makes the Frobenius norm of A so it isn't calculated every iteration
     #  ||A||_F = sqrt{ sum_{i=1}^m sum_{j=1}^n |a_{ij}|^2 }
@@ -251,7 +303,8 @@ def part4_5_grapher(title, array: ndarray, U: ndarray, S: ndarray, Vh: ndarray, 
         )
 
         # Print metrics to console for not fancy viewing
-        print(f"k = {k:>4} | Relative Error: {rel_error:.4e} | Energy: {energy_k:.4e}")
+        print(
+            f"k = {k:>4} | Relative Error: {rel_error:.4e} | Energy: {energy_k:.4e}")
 
         # Plot A_k to one of the sub-graphs from above
         axes[i].imshow(A_k, cmap='gray')
@@ -262,12 +315,13 @@ def part4_5_grapher(title, array: ndarray, U: ndarray, S: ndarray, Vh: ndarray, 
     plt.tight_layout()
     plt.show()
 
+
 def spectral_analysis_and_error_quantification(svd):
     # Re-make the matrices U, S, Vh & Σ_i
     array, U, S, Vh = svd.A, svd.U, svd.S, svd.Vh
 
     # Tuple to iterate through the different LOG scales
-    LOG_SCALE = (1,10,50,100) # can remove 71 for final submission
+    LOG_SCALE = (1, 10, 50, 100)  # can remove 71 for final submission
 
     # Plot singular values on a log scale
     fig, ax = plt.subplots(figsize=(10, 4))
@@ -283,7 +337,9 @@ def spectral_analysis_and_error_quantification(svd):
     plt.tight_layout()
     plt.show()
 
-    part4_5_grapher(r"Rank-k Approximations $(A_k)$", array, U, S, Vh, LOG_SCALE)
+    part4_5_grapher(r"Rank-k Approximations $(A_k)$",
+                    array, U, S, Vh, LOG_SCALE)
+
 
 def compression_ratio(svd):
     # Re-make U, S & Vh again part 3
@@ -306,11 +362,14 @@ def compression_ratio(svd):
     print(f"Compression Ratio: {CR:.4e}")
 
     original_img_k_val = min(m, n)
-    part4_5_grapher(f"Optimal k-Value vs. Original Photo", array, U, S, Vh, (k, original_img_k_val))
+    part4_5_grapher(f"Optimal k-Value vs. Original Photo",
+                    array, U, S, Vh, (k, original_img_k_val))
 
-file_path = "control_10x10.jpg"
+
+file_path = "balloons.jpg"
 image_array = matrix_normalization(file_path, print=True)
-compactSVD = SVDForm.from_matrix(image_array, full_matrices=False) # if full_matrices=True, will use full SVD form.
+# if full_matrices=True, will use full SVD form.
+compactSVD = SVDForm.from_matrix(image_array, full_matrices=False)
 orthogonality_check(compactSVD)
 visualize_svd(compactSVD)
 spectral_analysis_and_error_quantification(compactSVD)
