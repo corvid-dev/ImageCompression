@@ -118,7 +118,7 @@ def visualize_svd(svd):
     v_2 = Sigma @ v_1
     v_3 = U @ v_2
 
-    def true_angle(v_b, v_a):
+    def vec_angle(v_b, v_a):
         nb = np.linalg.norm(v_b)
         na = np.linalg.norm(v_a)
 
@@ -145,9 +145,9 @@ def visualize_svd(svd):
             pct_change = 0.0
         return pct_change
 
-    angle1 = true_angle(s_bar, v_1)
-    angle2 = true_angle(v_1, v_2)
-    #angle3 = true_angle(v_2, v_3)
+    angle1 = vec_angle(s_bar, v_1)
+    angle2 = vec_angle(v_1, v_2)
+    # angle3 = vec_angle(v_2, v_3)
     angle3 = None
 
     scale1 = length_change_perc(s_bar, v_1)
@@ -217,19 +217,10 @@ def visualize_svd(svd):
     # build plot
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-    def signed_angle_2d(v_b, v_a):
-        # guard against 0 length vectors
-        if np.linalg.norm(v_b) < 1e-10 or np.linalg.norm(v_a) < 1e-10:
-            return 0.0
-        # check the signed 2d angle using the formula
-        cross = v_b[0] * v_a[1] - v_b[1] * v_a[0]
-        dot = v_b[0] * v_a[0] + v_b[1] * v_a[1]
-        return np.degrees(np.arctan2(cross, dot))
-
     # draw the plots
     # extract relevant information from each panel.
     for ax, (v_b, v_a, angle, scale, label_b, label_a, title) in zip(axes, panels):
-        projangle = signed_angle_2d(v_b, v_a)   # calculate the angle change
+        projangle = vec_angle(v_b, v_a)   # calculate the angle change
         # calculate the length change
         projpct_change = length_change_perc(v_b, v_a)
         angle_text = "N/A" if angle is None else f"{angle:.1f}°"
@@ -237,15 +228,12 @@ def visualize_svd(svd):
             [],
             [],
             linestyle='none',
-            label=(
-                f"Original:\n"
-                f"Rescale = {scale:.1f}%\n"
-                f"Rotation = {angle_text}\n\n"
-                f"Projected:\n"
-                f"Recale = {projpct_change:.1f}%\n"
-                f"Rotation = {projangle:.1f}°"
-            )
-        )
+            label=(f"Original Basis:\n"
+                   f"$\\Delta L$ = {scale:.1f}%\n"
+                   f"$\\Delta \\theta$ = {angle_text}\n\n"
+                   f"2D Basis:\n"
+                   f"$\\Delta L$ = {projpct_change:.1f}%\n"
+                   f"$\\Delta \\theta$ = {projangle:.1f}°"))
         # determine plot limits based on vector magnitude, with some padding
         limit = max(np.linalg.norm(v_b), np.linalg.norm(v_a), 1) * 1.2
         # draw vectors from (0,0) to (vector_x,vector_y)
@@ -326,16 +314,17 @@ def spectral_analysis_and_error_quantification(svd):
     # Plot singular values on a log scale
     fig, ax = plt.subplots(figsize=(10, 4))
 
-    #ax.semilogy(S, color='steelblue')
-    ax.semilogy(range(1, len(S)+1), S, color='steelblue',linewidth=2) # begin at \sigma_1
+    # ax.semilogy(S, color='steelblue')
+    ax.semilogy(range(1, len(S)+1), S, color='steelblue',
+                linewidth=2)  # begin at \sigma_1
     # Title/Axis Labels
     ax.set_title(r"Singular Value Spectrum Analysis (Log Scale)")
     ax.set_xlabel(r"index $i$")
     ax.set_ylabel(r"$\sigma_i$")
-    ax.set_xticks(np.arange(0, len(S)+1, 100)) # more ticks
-    ax.grid(True, which='major', linestyle='--', alpha=0.5) #declutter
+    ax.set_xticks(np.arange(0, len(S)+1, 100))  # more ticks
+    ax.grid(True, which='major', linestyle='--', alpha=0.5)  # declutter
     # Other Configurations before making the graph
-    #ax.grid(True, which='both', linestyle='--', alpha=0.6)
+    # ax.grid(True, which='both', linestyle='--', alpha=0.6)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     plt.tight_layout()
