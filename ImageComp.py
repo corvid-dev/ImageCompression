@@ -147,7 +147,7 @@ def visualize_svd(svd):
 
     angle1 = true_angle(s_bar, v_1)
     angle2 = true_angle(v_1, v_2)
-    # angle3 = true_angle(v_2, v_3)
+    #angle3 = true_angle(v_2, v_3)
     angle3 = None
 
     scale1 = length_change_perc(s_bar, v_1)
@@ -326,14 +326,18 @@ def spectral_analysis_and_error_quantification(svd):
     # Plot singular values on a log scale
     fig, ax = plt.subplots(figsize=(10, 4))
 
-    ax.semilogy(S, color='steelblue')
+    #ax.semilogy(S, color='steelblue')
+    ax.semilogy(range(1, len(S)+1), S, color='steelblue',linewidth=2) # begin at \sigma_1
     # Title/Axis Labels
-    ax.set_title("Singular Values (Log Scale)")
-    ax.set_xlabel("Index i")
-    ax.set_ylabel(r"$\sigma_i$ (log scale)")
-
+    ax.set_title(r"Singular Value Spectrum Analysis (Log Scale)")
+    ax.set_xlabel(r"index $i$")
+    ax.set_ylabel(r"$\sigma_i$")
+    ax.set_xticks(np.arange(0, len(S)+1, 100)) # more ticks
+    ax.grid(True, which='major', linestyle='--', alpha=0.5) #declutter
     # Other Configurations before making the graph
-    ax.grid(True, which='both', linestyle='--', alpha=0.6)
+    #ax.grid(True, which='both', linestyle='--', alpha=0.6)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
     plt.tight_layout()
     plt.show()
 
@@ -370,6 +374,12 @@ file_path = "balloons.jpg"
 image_array = matrix_normalization(file_path, print=True)
 # if full_matrices=True, will use full SVD form.
 compactSVD = SVDForm.from_matrix(image_array, full_matrices=False)
+
+print("A shape:", image_array.shape)
+print("U shape:", compactSVD.U.shape)
+print("S shape:", compactSVD.S.shape)
+print("Vh shape:", compactSVD.Vh.shape)
+
 orthogonality_check(compactSVD)
 visualize_svd(compactSVD)
 spectral_analysis_and_error_quantification(compactSVD)
