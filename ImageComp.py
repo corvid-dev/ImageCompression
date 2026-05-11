@@ -9,7 +9,7 @@ from skimage.util import img_as_float
 # Visualization
 import matplotlib.pyplot as plt
 from dataclasses import dataclass
-
+# Authors: Raphael Zeldin, Owen Barnes
 
 @dataclass(slots=True)
 class SVDForm:
