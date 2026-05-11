@@ -6,8 +6,6 @@ Repository Link: https://github.com/corvid-dev/ImageCompression.git
 
 Install the required libraries: numpy, scikit-image, matplotlib
 
-Rename: ImageComp.py.txt to ImageComp.py
-
 Run using terminal command: py ImageComp.py
 
 Change image by editing file_path = "balloons.jpg" at the bottom of the code to your_image.jpg in same directory.
